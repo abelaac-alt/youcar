@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CarView</string>
+    <string name="app_tagline">VÍDEOS EN TU ANDROID</string>
+    <string name="home">Inicio</string>
+    <string name="back">Atrás</string>
+    <string name="forward">Adelante</string>
+    <string name="refresh">Actualizar</string>
+    <string name="menu">Más opciones</string>
+    <string name="search">Buscar vídeos</string>
+    <string name="go">Ir</string>
+    <string name="address_hint">Buscar en YouTube o escribir una URL</string>
+    <string name="bookmark">Guardar favorito</string>
+    <string name="stationary">Solo utiliza vídeo con el vehículo estacionado</string>
+</resources>

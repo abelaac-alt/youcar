@@ -1,0 +1,14 @@
+CARVIEW — GENERAR APK EN WINDOWS
+
+1. Descarga Android Studio desde https://developer.android.com/studio
+2. Descomprime CarView-Android.zip.
+3. Abre Android Studio y selecciona Open > carpeta CarView-Android.
+4. Instala Android SDK 35 si Android Studio lo solicita y sincroniza Gradle.
+5. Usa Build > Build Bundle(s) / APK(s) > Build APK(s).
+6. Localiza app\build\outputs\apk\debug\app-debug.apk.
+7. Copia ese APK al teléfono y ábrelo para instalar.
+
+Si el proyecto pregunta por Gradle, usa Gradle 8.9 y JDK 17.
+El archivo entregado incluye código fuente, no el APK compilado.
+IMPORTANTE: No se garantiza funcionamiento en Android Auto convencional.
+Los vídeos deben reproducirse solo con el coche estacionado.
