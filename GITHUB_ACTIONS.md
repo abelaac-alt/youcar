@@ -58,3 +58,8 @@ Abre la ejecución fallida en **Actions**, entra en **Compilar y guardar APK de 
 - No se ha ejecutado una compilación real de GitHub Actions al generar este proyecto; el resultado debe confirmarse en el repositorio una vez publicado.
 - CarView es un proyecto independiente, no una réplica exacta de CarStream 2.0.5. Que compile **no significa** que se muestre en Android Auto: esa compatibilidad no está implementada.
 - Usa el vídeo únicamente con el vehículo estacionado.
+
+
+## CarView Android Auto (audio)
+
+El APK generado contiene el servicio de biblioteca de audio local para Android Auto. El vídeo no se proyecta en Android Auto ni se desactivan restricciones de movimiento. Lee `ANDROID_AUTO.md`.

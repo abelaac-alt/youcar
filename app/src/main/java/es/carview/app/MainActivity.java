@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.view.Gravity;
@@ -55,6 +57,8 @@ public class MainActivity extends Activity {
     private static final String KEY_HISTORY = "history_json";
     private static final int PICK_VIDEO_REQUEST = 501;
     private static final int VOICE_REQUEST = 502;
+    private static final int PICK_AUDIO_REQUEST = 503;
+    private static final String KEY_SAFETY_CONFIRMATION = "safety_notice_confirmed";
     private static final int HISTORY_LIMIT = 35;
 
     private FrameLayout rootLayer;
@@ -104,6 +108,9 @@ public class MainActivity extends Activity {
         applyWindowInsets();
         configureWebView();
         configureControls();
+        if (!preferences.getBoolean(KEY_SAFETY_CONFIRMATION, false)) {
+            showSafetyConfirmation();
+        }
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             webView.loadUrl(HOME_URL);
         }
@@ -307,6 +314,9 @@ public class MainActivity extends Activity {
         popup.getMenu().add(0, 7, 6, "Pantalla completa");
         popup.getMenu().add(0, 8, 7, "Abrir página en navegador");
         popup.getMenu().add(0, 9, 8, "Ajustes e información");
+        popup.getMenu().add(0, 10, 9, "Importar audio para Android Auto");
+        popup.getMenu().add(0, 11, 10, "Ver biblioteca de audio");
+        popup.getMenu().add(0, 12, 11, "Mostrar aviso de seguridad");
         popup.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 1: webView.loadUrl(HOME_URL); break;
@@ -318,6 +328,9 @@ public class MainActivity extends Activity {
                 case 7: setBrowserImmersive(true); break;
                 case 8: openInBrowser(); break;
                 case 9: showSettingsDialog(); break;
+                case 10: chooseLocalAudio(); break;
+                case 11: showAudioLibrary(); break;
+                case 12: showSafetyConfirmation(); break;
                 default: return false;
             }
             return true;
@@ -447,8 +460,93 @@ public class MainActivity extends Activity {
         showToast("Entrada eliminada");
     }
 
+    /**
+     * Consent on the PHONE UI only. This is not a way to bypass or override car restrictions.
+     * Android Auto media surfaces are rendered by its host, not custom app dialogs.
+     */
+    private void showSafetyConfirmation() {
+        new AlertDialog.Builder(this)
+                .setTitle("Confirmación de uso seguro")
+                .setMessage("CarView permite ver vídeos únicamente con el coche estacionado. "
+                        + "En Android Auto se ofrece exclusivamente la biblioteca de audio local. "
+                        + "Esta confirmación no cambia ni desactiva las restricciones de Android Auto "
+                        + "o Apple CarPlay.\n\n¿Quieres continuar?")
+                .setCancelable(false)
+                .setPositiveButton("Entendido, continuar", (dialog, which) -> {
+                    preferences.edit().putBoolean(KEY_SAFETY_CONFIRMATION, true).apply();
+                })
+                .setNegativeButton("Salir", (dialog, which) -> finish())
+                .show();
+    }
+
+    private void chooseLocalAudio() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("audio/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try {
+            startActivityForResult(intent, PICK_AUDIO_REQUEST);
+        } catch (ActivityNotFoundException ex) {
+            showToast("No se encontró un selector de archivos de audio");
+        }
+    }
+
+    private void saveSelectedAudio(Uri uri) {
+        try {
+            getContentResolver().takePersistableUriPermission(uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            String name = "Audio local";
+            try (Cursor cursor = getContentResolver().query(uri,
+                    new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) name = cursor.getString(0);
+            }
+            if (name == null || name.isEmpty()) name = "Audio local";
+            LocalAudioLibrary.add(this, uri, name);
+            showToast("Audio añadido: " + name);
+        } catch (SecurityException | IllegalArgumentException exception) {
+            showToast("No se pudo conservar el permiso de lectura del archivo");
+        }
+    }
+
+    private void showAudioLibrary() {
+        java.util.List<LocalAudioLibrary.Track> items = LocalAudioLibrary.load(this);
+        if (items.isEmpty()) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Biblioteca de Android Auto")
+                    .setMessage("Todavía no hay audio importado. Añade archivos MP3, M4A "
+                            + "u otros formatos admitidos desde el móvil; luego podrás "
+                            + "explorarlos y reproducirlos desde Android Auto.")
+                    .setPositiveButton("Importar audio", (d, w) -> chooseLocalAudio())
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+            return;
+        }
+        String[] names = new String[items.size()];
+        for (int i = 0; i < names.length; i++) names[i] = items.get(i).title;
+        new AlertDialog.Builder(this)
+                .setTitle("Biblioteca de audio para Android Auto")
+                .setItems(names, (d, which) -> {
+                    LocalAudioLibrary.Track selected = items.get(which);
+                    new AlertDialog.Builder(this)
+                            .setTitle(selected.title)
+                            .setMessage("Este archivo se ofrece como audio en Android Auto. "
+                                    + "Puedes borrarlo de la biblioteca sin borrar "
+                                    + "el archivo original del móvil.")
+                            .setPositiveButton("Eliminar", (dialog, position) -> {
+                                LocalAudioLibrary.remove(this, selected.uri);
+                                showToast("Eliminado de la biblioteca");
+                            })
+                            .setNegativeButton("Cerrar", null)
+                            .show();
+                })
+                .setPositiveButton("Añadir audio", (dialog, which) -> chooseLocalAudio())
+                .setNegativeButton("Cerrar", null)
+                .show();
+    }
+
     private void showSettingsDialog() {
-        String details = "CarView 1.0.0\n\n"
+        String details = "CarView 1.1.0 — Android Auto (audio)\n\n"
                 + "Navegador de YouTube, favoritos, historial, modo escritorio y vídeos locales.\n\n"
                 + "Reproduce vídeos solamente cuando el vehículo esté estacionado. "
                 + "Android Auto convencional no ofrece soporte oficial general para "
@@ -506,6 +604,8 @@ public class MainActivity extends Activity {
         if (resultCode != RESULT_OK || data == null) return;
         if (requestCode == PICK_VIDEO_REQUEST && data.getData() != null) {
             showLocalVideo(data.getData());
+        } else if (requestCode == PICK_AUDIO_REQUEST && data.getData() != null) {
+            saveSelectedAudio(data.getData());
         } else if (requestCode == VOICE_REQUEST) {
             ArrayList<String> matches = data.getStringArrayListExtra(
                     RecognizerIntent.EXTRA_RESULTS);
